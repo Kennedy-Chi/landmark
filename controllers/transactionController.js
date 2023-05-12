@@ -377,6 +377,7 @@ exports.approveWithdrawal = catchAsync(async (req, res, next) => {
 
   await Wallet.findByIdAndUpdate(req.body.walletId, {
     $inc: { balance: req.body.amount * -1 },
+    $inc: { pendingWithdrawal: req.body.amount * -1 },
   });
 
   await User.findOneAndUpdate(
