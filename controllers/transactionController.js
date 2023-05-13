@@ -27,7 +27,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
     });
     data.walletId = wallet.walletId;
     data.symbol = wallet.symbol;
-
+    data.status = true;
     await Transaction.create(data);
 
     next();
@@ -43,6 +43,8 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
 
       data.reinvest = true;
       data.status = true;
+
+      await Transaction.create(data);
 
       data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
       data.daysRemaining = data.planDuration;
@@ -60,9 +62,6 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
         next
       );
     }
-
-    await Transaction.create(data);
-
     if (data.transactionType == "withdrawal") {
       await Wallet.findByIdAndUpdate(data.walletId, {
         $inc: { pendingWithdrawal: data.amount },
@@ -219,14 +218,13 @@ const startActiveDeposit = async (
   user,
   next
 ) => {
-  const seconds = Math.floor((timeRemaining / 1000) % 60);
-  const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
-  const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
+  let seconds = Math.floor((timeRemaining / 1000) % 60);
+  let minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+  let hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
 
   // print the result
   console.log(
-    `The next earning will be executed in: ${hours} hours, ${minutes} minutes, ${seconds} seconds`,
-    timeRemaining
+    `The next earning will be executed in: ${hours} hours, ${minutes} minutes, ${seconds} seconds`
   );
 
   const intervalId = setInterval(async () => {
@@ -237,6 +235,7 @@ const startActiveDeposit = async (
       {
         $inc: { earning: earning * 1, daysRemaining: -interval * 1 },
         time: newTime,
+        serverTime: new Date().getTime(),
       }
     );
 
@@ -281,6 +280,66 @@ const startActiveDeposit = async (
   }, interval);
 };
 
+const finishInterruptedActiveDeposit = async (
+  activeDeposit,
+  earning,
+  timeRemaining,
+  interval,
+  user,
+  next
+) => {
+  const planCycle = activeDeposit.planCycle;
+
+  setTimeout(async () => {
+    const newTime = (activeDeposit.time += planCycle);
+
+    await Active.updateOne(
+      { _id: activeDeposit._id },
+      {
+        $inc: { earning: earning * 1, daysRemaining: -planCycle * 1 },
+        time: newTime,
+        serverTime: new Date().getTime(),
+      }
+    );
+
+    const form = {
+      symbol: activeDeposit.symbol,
+      depositId: activeDeposit._id,
+      username: activeDeposit.username,
+      amount: activeDeposit.amount,
+      earning: earning,
+      referredBy: activeDeposit.referralUsername,
+      walletName: activeDeposit.walletName,
+      walletId: activeDeposit.walletId,
+      time: activeDeposit.time,
+    };
+
+    timeRemaining -= planCycle;
+    await Earning.create(form);
+
+    await User.findByIdAndUpdate(user._id, {
+      $inc: { totalBalance: form.earning },
+    });
+
+    await Wallet.findByIdAndUpdate(activeDeposit.walletId, {
+      $inc: {
+        balance: form.earning,
+      },
+    });
+
+    const newActiveDeposit = await Active.findById(activeDeposit._id);
+
+    startActiveDeposit(
+      newActiveDeposit,
+      earning,
+      timeRemaining,
+      newActiveDeposit.planCycle * 1,
+      user,
+      next
+    );
+  }, interval);
+};
+
 exports.approveDeposit = catchAsync(async (req, res, next) => {
   req.body.status = true;
   await Transaction.findByIdAndUpdate(req.params.id, { status: true });
@@ -297,8 +356,6 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
       },
     });
   }
-  // req.body.planCycle = 60 * 1000;
-  // req.body.planDuration = 4 * 60 * 1000;
 
   req.body.planDuration = req.body.planDuration * 24 * 60 * 60 * 1000;
   req.body.daysRemaining = req.body.planDuration;
@@ -512,27 +569,30 @@ exports.getEarnings = catchAsync(async (req, res, next) => {
 });
 
 exports.continueEarnings = catchAsync(async (req, res, next) => {
-  // const timeRemaining = new Date().getTime();
-  // const seconds = Math.floor((timeRemaining / 1000) % 60);
-  // const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
-  // const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
-
   const activeDeposit = await Active.findByIdAndUpdate(req.params.id, {
     status: true,
   });
+  const timeRemaining =
+    activeDeposit.planCycle - (new Date().getTime() - activeDeposit.serverTime);
+
+  const seconds = Math.floor((timeRemaining / 1000) % 60);
+  const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+  const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
 
   const user = await User.findOne({ username: activeDeposit.username });
   const earning = Number(
     (activeDeposit.amount * activeDeposit.percent) / 100
   ).toFixed(2);
 
-  console.log("Active deposits reactivated");
+  console.log(
+    `Active deposit is reactivated and the time remaining is ${hours} hours, ${minutes} minutes and ${seconds} seconds.`
+  );
 
-  startActiveDeposit(
+  finishInterruptedActiveDeposit(
     activeDeposit,
     earning,
     activeDeposit.daysRemaining * 1,
-    activeDeposit.planCycle * 1,
+    timeRemaining,
     user,
     next
   );
