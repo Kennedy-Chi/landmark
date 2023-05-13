@@ -44,8 +44,6 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
       data.reinvest = true;
       data.status = true;
 
-      await Transaction.create(data);
-
       data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
       data.daysRemaining = data.planDuration;
       data.serverTime = new Date().getTime();
@@ -71,6 +69,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
         $inc: { pendingDeposit: data.amount },
       });
     }
+    await Transaction.create(data);
 
     sendTransactionEmail(data.user, data.transactionType, data.amount, next);
     notificationController.createNotification(
