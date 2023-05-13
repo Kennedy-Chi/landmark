@@ -86,7 +86,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
     next();
   }
 });
-
+//
 exports.updateTransaction = catchAsync(async (req, res, next) => {
   const data = req.body;
   const plan = await Plan.findOne({ planName: data.planName });
