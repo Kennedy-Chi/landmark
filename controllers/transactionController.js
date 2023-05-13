@@ -43,7 +43,6 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
 
       data.reinvest = true;
       data.status = true;
-      await Transaction.create(data);
 
       data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
       data.daysRemaining = data.planDuration;
@@ -61,6 +60,11 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
         next
       );
     }
+
+    data.planDuration = data.planDuration / (24 * 60 * 60 * 1000);
+    data.daysRemaining = data.planDuration;
+
+    await Transaction.create(data);
 
     if (data.transactionType == "withdrawal") {
       await Wallet.findByIdAndUpdate(data.walletId, {
