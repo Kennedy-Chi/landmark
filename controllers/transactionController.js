@@ -15,6 +15,8 @@ const catchAsync = require("../utils/catchAsync");
 
 exports.createTransaction = catchAsync(async (req, res, next) => {
   const data = req.body;
+  const duration = data.planDuration;
+
   if (data.autoTransact) {
     const plan = await Plan.findOne({ planName: data.planName });
     data.planCycle = plan.planCycle;
@@ -60,10 +62,8 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
         next
       );
     }
-
-    data.planDuration = data.planDuration / (24 * 60 * 60 * 1000);
-    data.daysRemaining = data.planDuration;
-
+    data.planDuration = duration;
+    data.daysRemaining = duration;
     await Transaction.create(data);
 
     if (data.transactionType == "withdrawal") {
