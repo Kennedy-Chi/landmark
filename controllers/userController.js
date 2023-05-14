@@ -92,9 +92,7 @@ exports.editUser = catchAsync(async (req, res, next) => {
 
   await User.updateOne(
     { _id: req.params.id },
-    {
-      $inc: { totalBalance: totalBalance * 1 },
-    }
+    { totalBalance: totalBalance * 1 }
   );
 
   req.fileNames = files;
