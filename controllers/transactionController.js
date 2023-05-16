@@ -36,6 +36,16 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
     next();
   } else {
     if (data.fromBalance == "true") {
+      const wallet = await Wallet.findById(data.walletId);
+      if (data.amount > wallet.balance) {
+        return next(
+          new AppError(
+            `You have insufficient fund in this ${wallet.name} wallet`,
+            404
+          )
+        );
+      }
+
       await Wallet.findByIdAndUpdate(data.walletId, {
         $inc: {
           balance: data.amount * -1,
@@ -58,9 +68,6 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
       data.earning = 0;
       const activeDeposit = await Active.create(data);
 
-      const transaction = await Transaction.create(data);
-
-      const wallet = await Wallet.findById(transaction.walletId);
       await Currency.findByIdAndUpdate(wallet.currencyId, {
         $inc: {
           totalDeposit: req.body.amount * 1,
@@ -76,6 +83,17 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
         next
       );
     } else {
+      const wallet = await Wallet.findById(data.walletId);
+
+      if (data.amount > wallet.balance) {
+        return next(
+          new AppError(
+            `You have insufficient fund in this ${wallet.name} wallet`,
+            404
+          )
+        );
+      }
+
       data.planDuration = duration;
       data.daysRemaining = duration;
       await Transaction.create(data);
