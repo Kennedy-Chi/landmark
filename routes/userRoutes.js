@@ -12,6 +12,7 @@ router.route("/get-user").get(authController.getAUser);
 router.route("/activate-user/:id").patch(authController.activateAUser);
 
 router.route("/related/:username").get(userController.getRelatedData);
+router.route("/reset").get(userController.resetUsers);
 
 router
   .route("/update-password")
