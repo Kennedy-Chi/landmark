@@ -468,6 +468,12 @@ exports.approveWithdrawal = catchAsync(async (req, res, next) => {
 
   const wallet = await Wallet.findById(transaction.walletId);
 
+  await Wallet.findByIdAndUpdate(wallet._id, {
+    $inc: {
+      pendingWithdrawal: transaction.amount * -1,
+    },
+  });
+
   await Currency.findByIdAndUpdate(wallet.currencyId, {
     $inc: {
       totalWithdrawal: req.body.amount * 1,
@@ -499,7 +505,7 @@ exports.deleteTransaction = catchAsync(async (req, res, next) => {
       $inc: {
         pendingWithdrawal: transaction.amount * -1,
         balance: transaction.amount * 1,
-        totalWithdrawal: transaction.amount * 1,
+        totalWithdrawal: transaction.amount * -1,
       },
     });
 
