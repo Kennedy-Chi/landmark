@@ -2,6 +2,7 @@ const Transaction = require("../models/transactionModel");
 const Active = require("../models/activeModel");
 const Earning = require("../models/earningModel");
 const Wallet = require("../models/walletModel");
+const Currency = require("../models/currencyModel");
 const Plan = require("../models/planModel");
 const Referral = require("../models/referralModel");
 const Company = require("../models/companyModel");
@@ -36,7 +37,11 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
   } else {
     if (data.fromBalance == "true") {
       await Wallet.findByIdAndUpdate(data.walletId, {
-        $inc: { balance: data.amount * -1, totalDeposit: data.amount },
+        $inc: {
+          balance: data.amount * -1,
+          totalDeposit: data.amount * 1,
+          pendingDeposit: data.amount * -1,
+        },
       });
 
       await User.findByIdAndUpdate(data.user._id, {
@@ -53,6 +58,15 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
       data.earning = 0;
       const activeDeposit = await Active.create(data);
 
+      const transaction = await Transaction.create(data);
+
+      const wallet = await Wallet.findById(transaction.walletId);
+      await Currency.findByIdAndUpdate(wallet.currencyId, {
+        $inc: {
+          totalDeposit: req.body.amount * 1,
+        },
+      });
+
       startActiveDeposit(
         activeDeposit,
         earning,
@@ -64,7 +78,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
     } else {
       data.planDuration = duration;
       data.daysRemaining = duration;
-      await Transaction.create(data);
+      const transaction = await Transaction.create(data);
 
       if (data.transactionType == "withdrawal") {
         await Wallet.findByIdAndUpdate(data.walletId, {
@@ -75,6 +89,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
           $inc: { pendingDeposit: data.amount },
         });
       }
+
       sendTransactionEmail(data.user, data.transactionType, data.amount, next);
       notificationController.createNotification(
         data.user.username,
@@ -351,6 +366,7 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
   if (req.body.transactionType == "withdrawal") {
     await Wallet.findByIdAndUpdate(req.body.walletId, {
       $inc: { pendingWithdrawal: req.body.amount * -1 },
+      $inc: { totalWithdrawal: req.body.amount * 1 },
     });
   } else {
     await Wallet.findByIdAndUpdate(req.body.walletId, {
@@ -377,6 +393,14 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
     user,
     next
   );
+
+  const wallet = await Wallet.findById(activeDeposit.walletId);
+
+  await Currency.findByIdAndUpdate(wallet.currencyId, {
+    $inc: {
+      totalDeposit: req.body.amount * 1,
+    },
+  });
 
   const referral = await Referral.findOne({
     referralUsername: activeDeposit.username,
@@ -440,10 +464,19 @@ exports.approveWithdrawal = catchAsync(async (req, res, next) => {
     status: true,
   });
 
+  const wallet = await Wallet.findById(transaction.walletId);
+
+  await Currency.findByIdAndUpdate(wallet.currencyId, {
+    $inc: {
+      totalWithdrawal: req.body.amount * 1,
+    },
+  });
+
   await Wallet.findByIdAndUpdate(transaction.walletId, {
     $inc: {
       balance: req.body.amount * -1,
       pendingWithdrawal: req.body.amount * -1,
+      totalWithdrawal: req.body.amount * 1,
     },
   });
 
