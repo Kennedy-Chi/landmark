@@ -36,7 +36,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
   } else {
     if (data.fromBalance == "true") {
       await Wallet.findByIdAndUpdate(data.walletId, {
-        $inc: { balance: data.amount * -1 },
+        $inc: { balance: data.amount * -1, totalDeposit: data.amount },
       });
 
       await User.findByIdAndUpdate(data.user._id, {
@@ -61,32 +61,33 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
         data.user,
         next
       );
-    }
-    data.planDuration = duration;
-    data.daysRemaining = duration;
-    await Transaction.create(data);
-
-    if (data.transactionType == "withdrawal") {
-      await Wallet.findByIdAndUpdate(data.walletId, {
-        $inc: { pendingWithdrawal: data.amount },
-      });
     } else {
-      await Wallet.findByIdAndUpdate(data.walletId, {
-        $inc: { pendingDeposit: data.amount },
-      });
+      data.planDuration = duration;
+      data.daysRemaining = duration;
+      await Transaction.create(data);
+
+      if (data.transactionType == "withdrawal") {
+        await Wallet.findByIdAndUpdate(data.walletId, {
+          $inc: { pendingWithdrawal: data.amount },
+        });
+      } else {
+        await Wallet.findByIdAndUpdate(data.walletId, {
+          $inc: { pendingDeposit: data.amount },
+        });
+      }
+      sendTransactionEmail(data.user, data.transactionType, data.amount, next);
+      notificationController.createNotification(
+        data.user.username,
+        data.transactionType,
+        data.date,
+        data.dateCreated
+      );
     }
-    sendTransactionEmail(data.user, data.transactionType, data.amount, next);
-    notificationController.createNotification(
-      data.user.username,
-      data.transactionType,
-      data.date,
-      data.dateCreated
-    );
 
     next();
   }
 });
-//
+
 exports.updateTransaction = catchAsync(async (req, res, next) => {
   const data = req.body;
   const plan = await Plan.findOne({ planName: data.planName });
@@ -355,7 +356,7 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
     await Wallet.findByIdAndUpdate(req.body.walletId, {
       $inc: {
         pendingDeposit: req.body.amount * -1,
-        amountDeposited: req.body.amount * 1,
+        totalDeposit: req.body.amount * 1,
       },
     });
   }
