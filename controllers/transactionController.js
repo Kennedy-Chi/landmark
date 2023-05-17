@@ -85,20 +85,20 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
     } else {
       const wallet = await Wallet.findById(data.walletId);
 
-      if (data.amount > wallet.balance) {
-        return next(
-          new AppError(
-            `You have insufficient fund in this ${wallet.name} wallet`,
-            404
-          )
-        );
-      }
-
       data.planDuration = duration;
       data.daysRemaining = duration;
-      await Transaction.create(data);
-
       if (data.transactionType == "withdrawal") {
+        if (data.amount > wallet.balance) {
+          return next(
+            new AppError(
+              `You have insufficient fund in this ${wallet.name} wallet`,
+              404
+            )
+          );
+        }
+
+        await Transaction.create(data);
+
         await Wallet.findByIdAndUpdate(data.walletId, {
           $inc: {
             pendingWithdrawal: data.amount,
