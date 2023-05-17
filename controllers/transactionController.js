@@ -87,6 +87,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
 
       data.planDuration = duration;
       data.daysRemaining = duration;
+      console.log(wallet, data);
       if (data.transactionType == "withdrawal") {
         if (data.amount > wallet.balance) {
           return next(
@@ -112,6 +113,8 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
           { $inc: { totalBalance: req.body.amount * -1 } }
         );
       } else {
+        await Transaction.create(data);
+
         await Wallet.findByIdAndUpdate(data.walletId, {
           $inc: { pendingDeposit: data.amount },
         });
