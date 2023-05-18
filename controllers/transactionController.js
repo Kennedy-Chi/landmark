@@ -19,19 +19,56 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
   const duration = data.planDuration;
 
   if (data.autoTransact) {
-    const plan = await Plan.findOne({ planName: data.planName });
-    data.planCycle = plan.planCycle;
-    data.planDuration = plan.planDuration;
-    data.percent = plan.planPercentage;
+    if (data.amount > data.wallet.balance) {
+      return next(
+        new AppError(
+          `You have insufficient fund in this ${data.wallet.name} wallet`,
+          404
+        )
+      );
+    }
 
-    const wallet = await Wallet.findOne({
-      name: data.walletName,
-      username: data.username,
+    await Wallet.findByIdAndUpdate(data.walletId, {
+      $inc: {
+        balance: data.amount * -1,
+        totalDeposit: data.amount * 1,
+      },
     });
-    data.walletId = wallet.walletId;
-    data.symbol = wallet.symbol;
+
+    await User.findByIdAndUpdate(data.user._id, {
+      $inc: { totalBalance: data.amount * -1 },
+    });
+
     data.status = true;
     await Transaction.create(data);
+    data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
+    data.daysRemaining = data.planDuration * 1;
+    data.serverTime = new Date().getTime();
+    const earning = Number((data.amount * data.percent) / 100).toFixed(2);
+    data.earning = 0;
+    const activeDeposit = await Active.create(data);
+
+    await Currency.findByIdAndUpdate(data.wallet.currencyId, {
+      $inc: {
+        totalDeposit: req.body.amount * 1,
+      },
+    });
+
+    startActiveDeposit(
+      activeDeposit,
+      earning,
+      data.planDuration * 1,
+      data.planCycle * 1,
+      data.user,
+      next
+    );
+
+    sendTransactionEmail(
+      data.user,
+      `${req.body.transactionType}-approval`,
+      req.body.amount,
+      next
+    );
 
     next();
   } else {
@@ -60,6 +97,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
 
       data.reinvest = true;
       data.status = true;
+      await Transaction.create(data);
 
       data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
       data.daysRemaining = data.planDuration;
@@ -87,7 +125,6 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
 
       data.planDuration = duration;
       data.daysRemaining = duration;
-      console.log(wallet, data);
       if (data.transactionType == "withdrawal") {
         if (data.amount > wallet.balance) {
           return next(
