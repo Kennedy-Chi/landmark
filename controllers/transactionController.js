@@ -493,7 +493,7 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
         },
       }
     );
-    const form = {
+    const data = {
       username: user.username,
       referralUsername: activeDeposit.username,
       amount: activeDeposit.amount,
@@ -505,7 +505,60 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
       time: activeDeposit.time,
       regDate: referral.regDate,
     };
-    await Referral.create(form);
+
+    await Referral.create(data);
+
+    const company = await Company.findOne();
+    const domainName = company.companyDomain;
+    const companyName = company.companyName;
+    const resetURL = "";
+
+    const email = await Email.findOne({ template: `referral-deposit` });
+    const from = `${company.systemEmail}`;
+    const content = email.content
+      .replace("{{amount}}", req.body.amount)
+      .replace("{{commission}}", data.commission)
+      .replace("{{username}}", activeDeposit.username)
+      .replace("{{company-name}}", company.companyName);
+    const warning = email.warning.replace(
+      "{{company-name}}",
+      company.companyName
+    );
+
+    const form = {
+      email: from,
+      username: user.username,
+    };
+    const receivers = [user, form];
+
+    receivers.forEach((el) => {
+      try {
+        const banner = `${domainName}/uploads/${email.banner}`;
+        new SendEmail(
+          companyName,
+          domainName,
+          from,
+          el,
+          "transaction",
+          email.title,
+          banner,
+          content,
+          email.headerColor,
+          email.footerColor,
+          email.mainColor,
+          email.greeting,
+          warning,
+          resetURL
+        ).sendEmail();
+      } catch (err) {
+        return next(
+          new AppError(
+            `There was an error sending the email. Try again later!, ${err}`,
+            500
+          )
+        );
+      }
+    });
   }
 
   sendTransactionEmail(

@@ -122,16 +122,58 @@ exports.signup = catchAsync(async (req, res, next) => {
         username: user.username,
         regDate: data.regDate,
       };
+
       referral.referrals.push(form);
       await User.findByIdAndUpdate(referral._id, {
         referrals: referral.referrals,
         hasReferred: true,
       });
+
       await Referral.create({
         username: referral.username,
         referralUsername: user.username,
         regDate: data.regDate,
       });
+
+      const email = await Email.findOne({
+        template: "referral-signup",
+      });
+      const company = await Company.findOne();
+
+      const content = email.content
+        .replace("{{company-name}}", company.companyName)
+        .replace("{{fullName}}", `${user.firstName} ${user.lastName}`)
+        .replace("{{username}}", user.username);
+      const from = company.systemEmail;
+      const domainName = company.companyDomain;
+
+      try {
+        const resetURL = ``;
+        const banner = `${domainName}/uploads/${email.banner}`;
+        new SendEmail(
+          company.companyName,
+          company.companyDomain,
+          from,
+          referral,
+          email.template,
+          email.title,
+          banner,
+          content,
+          email.headerColor,
+          email.footerColor,
+          email.mainColor,
+          email.greeting,
+          email.warning,
+          resetURL
+        ).sendEmail();
+      } catch (err) {
+        return next(
+          new AppError(
+            `There was an error sending the email. Try again later!, ${err}`,
+            500
+          )
+        );
+      }
     }
 
     const emailResult = await Email.find({
