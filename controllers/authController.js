@@ -117,6 +117,8 @@ exports.signup = catchAsync(async (req, res, next) => {
     const referral = await User.findOne({ username: data.referredBy });
     const user = await User.create(data);
 
+    console.log(data, referral);
+
     if (referral != null || referral != undefined) {
       const form = {
         username: user.username,

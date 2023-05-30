@@ -5,6 +5,7 @@ const Wallet = require("../models/walletModel");
 const Currency = require("../models/currencyModel");
 const Plan = require("../models/planModel");
 const Referral = require("../models/referralModel");
+const History = require("../models/historyModel");
 const Company = require("../models/companyModel");
 const AppError = require("../utils/appError");
 const User = require("../models/userModel");
@@ -39,8 +40,10 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
       $inc: { totalBalance: data.amount * -1 },
     });
 
-    data.status = true;
-    await Transaction.create(data);
+    data.reinvest = false;
+
+    await History.create(data);
+
     data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
     data.daysRemaining = data.planDuration * 1;
     data.serverTime = new Date().getTime();
@@ -97,7 +100,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
 
       data.reinvest = true;
       data.status = true;
-      await Transaction.create(data);
+      await History.create(data);
 
       data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
       data.daysRemaining = data.planDuration;
@@ -122,7 +125,7 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
       );
     } else {
       const wallet = await Wallet.findById(data.walletId);
-
+      data.reinvest = false;
       data.planDuration = duration;
       data.daysRemaining = duration;
       if (data.transactionType == "withdrawal") {
@@ -428,7 +431,8 @@ const finishInterruptedActiveDeposit = async (
 
 exports.approveDeposit = catchAsync(async (req, res, next) => {
   req.body.status = true;
-  await Transaction.findByIdAndUpdate(req.params.id, { status: true });
+  await Transaction.findByIdAndDelete(req.params.id);
+  await History.create(req.body);
 
   await Wallet.findByIdAndUpdate(req.body.walletId, {
     $inc: {
@@ -573,9 +577,8 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
 
 exports.approveWithdrawal = catchAsync(async (req, res, next) => {
   req.body.status = true;
-  const transaction = await Transaction.findByIdAndUpdate(req.params.id, {
-    status: true,
-  });
+  const transaction = await Transaction.findByIdAndDelete(req.params.id);
+  await History.create(req.body);
 
   const wallet = await Wallet.findById(transaction.walletId);
 

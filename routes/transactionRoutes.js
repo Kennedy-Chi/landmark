@@ -19,6 +19,7 @@ router.patch(
   transactionController.getActiveDeposits
 );
 router.get("/earnings", transactionController.getEarnings);
+router.get("/history", transactionController.getHistory);
 router.get("/deposit-list", transactionController.getDepositList);
 router.patch(
   "/approve-withdrawal/:id",
