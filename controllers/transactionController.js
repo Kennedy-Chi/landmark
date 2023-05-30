@@ -298,7 +298,24 @@ const deleteActiveDeposit = async (id, time, next) => {
     console.log(`A plan has completed successfully`);
   }
 };
+exports.getHistory = catchAsync(async (req, res, next) => {
+  const result = new APIFeatures(History.find(), req.query)
+    .filter()
+    .sort()
+    .limitFields();
 
+  const resultLen = await result.query;
+
+  const features = result.paginate();
+
+  const transactions = await features.query.clone();
+
+  res.status(200).json({
+    status: "success",
+    data: transactions,
+    resultLength: resultLen.length,
+  });
+});
 const startActiveDeposit = async (
   activeDeposit,
   earning,
