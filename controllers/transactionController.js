@@ -512,6 +512,9 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
           totalBalance: Number(
             (activeDeposit.amount * percentResult.referralCommission) / 100
           ),
+          commission: Number(
+            (activeDeposit.amount * percentResult.referralCommission) / 100
+          ),
         },
       }
     );
