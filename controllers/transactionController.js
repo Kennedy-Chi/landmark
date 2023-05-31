@@ -316,6 +316,7 @@ exports.getHistory = catchAsync(async (req, res, next) => {
     resultLength: resultLen.length,
   });
 });
+
 const startActiveDeposit = async (
   activeDeposit,
   earning,

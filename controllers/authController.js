@@ -131,6 +131,8 @@ exports.signup = catchAsync(async (req, res, next) => {
         hasReferred: true,
       });
 
+      console.log("referral found");
+
       await Referral.create({
         username: referral.username,
         referralUsername: user.username,
