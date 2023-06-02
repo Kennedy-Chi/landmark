@@ -269,7 +269,7 @@ const deleteActiveDeposit = async (id, time, next) => {
   if (activeResult) {
     await Wallet.findByIdAndUpdate(activeResult.walletId, {
       $inc: {
-        balance: activeResult.amount,
+        balance: activeResult.amount + activeResult.earning,
       },
 
       $inc: {
@@ -298,6 +298,7 @@ const deleteActiveDeposit = async (id, time, next) => {
     console.log(`A plan has completed successfully`);
   }
 };
+
 exports.getHistory = catchAsync(async (req, res, next) => {
   const result = new APIFeatures(History.find(), req.query)
     .filter()
@@ -597,8 +598,8 @@ exports.approveDeposit = catchAsync(async (req, res, next) => {
 });
 
 exports.approveWithdrawal = catchAsync(async (req, res, next) => {
-  req.body.status = true;
-  const transaction = await Transaction.findByIdAndDelete(req.params.id);
+  const transaction = await Transaction.findById(req.params.id);
+  await Transaction.findByIdAndDelete(req.params.id);
   await History.create(req.body);
 
   const wallet = await Wallet.findById(transaction.walletId);
