@@ -270,9 +270,6 @@ const deleteActiveDeposit = async (id, time, next) => {
     await Wallet.findByIdAndUpdate(activeResult.walletId, {
       $inc: {
         balance: activeResult.amount + activeResult.earning,
-      },
-
-      $inc: {
         amountDeposited: activeResult.amount * -1,
       },
     });
