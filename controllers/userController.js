@@ -3,6 +3,7 @@ const User = require("../models/userModel");
 const Related = require("../models/relatedModel");
 const Wallet = require("../models/walletModel");
 const Transaction = require("../models/transactionModel");
+const History = require("../models/historyModel");
 const Active = require("../models/activeModel");
 const Earning = require("../models/earningModel");
 const AppError = require("../utils/appError");
@@ -138,6 +139,7 @@ exports.resetUsers = catchAsync(async (req, res, next) => {
     },
   });
   await Transaction.deleteMany();
+  await History.deleteMany();
   await Active.deleteMany();
   await Earning.deleteMany();
 
@@ -163,6 +165,7 @@ exports.resetUser = catchAsync(async (req, res, next) => {
     }
   );
   await Transaction.deleteMany({ username: user.username });
+  await History.deleteMany({ username: user.username });
   await Active.deleteMany({ username: user.username });
   await Earning.deleteMany({ username: user.username });
 
