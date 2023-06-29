@@ -774,3 +774,34 @@ const deleteActiveDeposit = async (id, time, next) => {
     console.log(`A plan has completed successfully`);
   }
 };
+
+exports.checkActive = catchAsync(async (req, res, next) => {
+  const activeDeposits = await Active.find();
+
+  activeDeposits.forEach((el, index) => {
+    setTimeout(async () => {
+      const timeRemaining =
+        el.planCycle - (new Date().getTime() - el.serverTime);
+
+      const seconds = Math.floor((timeRemaining / 1000) % 60);
+      const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+      const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
+
+      const user = await User.findOne({ username: el.username });
+      const earning = Number((el.amount * el.percent) / 100).toFixed(2);
+
+      console.log(
+        `Active deposit is reactivated and the time remaining is ${hours} hours, ${minutes} minutes and ${seconds} seconds.`
+      );
+
+      finishInterruptedActiveDeposit(
+        el,
+        earning,
+        el.daysRemaining * 1,
+        timeRemaining,
+        user,
+        next
+      );
+    }, index * 60000);
+  });
+});
