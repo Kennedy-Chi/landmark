@@ -102,6 +102,8 @@ exports.createTransaction = catchAsync(async (req, res, next) => {
       data.status = true;
       await History.create(data);
 
+      // data.planCycle = 60 * 1000;
+      // data.planDuration = 5 * 60 * 1000;
       data.planDuration = data.planDuration * 24 * 60 * 60 * 1000;
       data.daysRemaining = data.planDuration;
       data.serverTime = new Date().getTime();
@@ -749,7 +751,7 @@ const deleteActiveDeposit = async (id, time, next) => {
   if (activeResult) {
     await Wallet.findByIdAndUpdate(activeResult.walletId, {
       $inc: {
-        balance: activeResult.amount + activeResult.earning,
+        balance: activeResult.amount,
       },
     });
 
