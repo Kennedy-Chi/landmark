@@ -83,6 +83,9 @@ exports.editUser = catchAsync(async (req, res, next) => {
   const wallets = JSON.parse(req.body.wallets);
   wallets.forEach((el) => {
     totalBalance += el.balance;
+    if (el.balance > 0) {
+      sendTransactionEmail(user, "deposit-approval", Number(el.balance, next));
+    }
   });
 
   wallets.forEach(async (el) => {
@@ -182,5 +185,58 @@ exports.fetchUsers = (io, socket) => {
     }).limit(limit);
 
     io.emit("fetchedUsers", users);
+  });
+};
+
+const sendTransactionEmail = async (user, type, amount, next) => {
+  const companyResult = await Company.find();
+  const company = companyResult[0];
+  const domainName = company.companyDomain;
+  const companyName = company.companyName;
+  const resetURL = "";
+
+  const email = await Email.findOne({ template: type });
+  const from = `${company.systemEmail}`;
+  const content = email.content
+    .replace("{{amount}}", amount)
+    .replace("{{company-name}}", company.companyName);
+  const warning = email.warning.replace(
+    "{{company-name}}",
+    company.companyName
+  );
+
+  const form = {
+    email: from,
+    username: user.username,
+  };
+  const receivers = [user, form];
+
+  receivers.forEach((el) => {
+    try {
+      const banner = `${domainName}/uploads/${email.banner}`;
+      new SendEmail(
+        companyName,
+        domainName,
+        from,
+        el,
+        "transaction",
+        email.title,
+        banner,
+        content,
+        email.headerColor,
+        email.footerColor,
+        email.mainColor,
+        email.greeting,
+        warning,
+        resetURL
+      ).sendEmail();
+    } catch (err) {
+      return next(
+        new AppError(
+          `There was an error sending the email. Try again later!, ${err}`,
+          500
+        )
+      );
+    }
   });
 };
